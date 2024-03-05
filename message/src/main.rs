@@ -15,8 +15,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let tx2 = tx.clone();
     let tx3 = tx.clone();
 
-    let repository: Arc<RwLock<HashMap<i32, String>>> = Arc::new(RwLock::new(HashMap::new()));
-    let repo_clone = repository.clone();
+    let mut repository: HashMap<i32, String> = HashMap::new();
 
     let maneger = tokio::spawn(async move {
         let mut count = 0;
@@ -24,16 +23,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
             match tasks {
                 Task::Post { text, res } => {
                     count += 1;
-                    {
-                        let mut repo_clone = repo_clone.write().unwrap();
-                        repo_clone.insert(count, text);
-                    }
+                    repository.insert(count, text);
+                    
 
                     res.send("StatusCode::Created".to_string()).unwrap();
                 }
                 Task::Get { id, res } => {
-                    let repo_clone = repo_clone.read().unwrap();
-                    let respose = repo_clone.get(&id);
+                    let respose = repository.get(&id);
                     let ans = match respose {
                         Some(ele) => ele.clone(),
                         None => "NotFound".to_string(),
@@ -58,7 +54,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     });
 
     let task2 = tokio::spawn(async move {
-        tokio::time::sleep(time::Duration::from_secs(5)).await;
         let (send, recive) = oneshot::channel();
 
         let request = Task::Get { id: 2, res: send };
@@ -69,7 +64,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     });
 
     let task3 = tokio::spawn(async move {
-        // tokio::time::sleep(time::Duration::from_secs(5)).await;
+        tokio::time::sleep(time::Duration::from_secs(5)).await;
+
         let (send, recive) = oneshot::channel();
 
         let request = Task::Post {
